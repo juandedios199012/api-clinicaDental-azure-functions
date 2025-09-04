@@ -7,6 +7,7 @@ export async function availabilityHandler(request, context) {
   try {
     const cosmosClient = new CosmosClient(process.env.CosmosDBConnection);
     const database = cosmosClient.database(process.env.COSMOS_DATABASE);
+    const container = database.container(process.env.COSMOS_CONTAINER);
     
     if (request.method === 'GET') {
       const url = new URL(request.url);

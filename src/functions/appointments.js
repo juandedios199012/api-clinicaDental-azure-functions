@@ -40,10 +40,35 @@ export async function appointmentsHandler(request, context) {
       const { resources: appointments } = await container.items
         .query(querySpec)
         .fetchAll();
+
+      // Enriquecer citas con nombres de doctor y servicio
+      const enrichedAppointments = await Promise.all(
+        appointments.map(async (appointment) => {
+          // Obtener nombre del doctor
+          const doctorQuery = {
+            query: 'SELECT c.nombre FROM c WHERE c.type = "doctor" AND c.id = @doctorId',
+            parameters: [{ name: '@doctorId', value: appointment.doctorId }]
+          };
+          const { resources: doctors } = await container.items.query(doctorQuery).fetchAll();
+          
+          // Obtener nombre del servicio
+          const serviceQuery = {
+            query: 'SELECT c.nombre FROM c WHERE c.type = "service" AND c.id = @servicioId',
+            parameters: [{ name: '@servicioId', value: appointment.servicioId }]
+          };
+          const { resources: services } = await container.items.query(serviceQuery).fetchAll();
+          
+          return {
+            ...appointment,
+            doctorNombre: doctors.length > 0 ? doctors[0].nombre : 'Doctor no encontrado',
+            servicioNombre: services.length > 0 ? services[0].nombre : 'Servicio no encontrado'
+          };
+        })
+      );
       
       return { 
         status: 200,
-        jsonBody: appointments
+        jsonBody: enrichedAppointments
       };
     }
 

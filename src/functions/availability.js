@@ -21,29 +21,33 @@ export async function availabilityHandler(request, context) {
       }
       
       // Obtener horario del doctor
-      const doctorsContainer = database.container(process.env.COSMOS_CONTAINER_DOCTORS);
-      const { resource: doctor } = await doctorsContainer.item(doctorId).read();
+      const doctorQuery = {
+        query: 'SELECT * FROM c WHERE c.type = "doctor" AND c.id = @doctorId',
+        parameters: [{ name: '@doctorId', value: doctorId }]
+      };
       
-      if (!doctor) {
+      const { resources: doctors } = await container.items.query(doctorQuery).fetchAll();
+      
+      if (!doctors || doctors.length === 0) {
         return {
           status: 404,
           jsonBody: { error: 'Doctor no encontrado' }
         };
       }
       
+      const doctor = doctors[0];
       const horarioCompleto = doctor.horario || [];
       
       // Obtener citas existentes para ese doctor en esa fecha
-      const citasContainer = database.container(process.env.COSMOS_CONTAINER);
       const citasQuery = {
-        query: 'SELECT c.hora FROM c WHERE c.doctorId = @doctorId AND c.fecha = @fecha',
+        query: 'SELECT c.hora FROM c WHERE c.type = "appointment" AND c.doctorId = @doctorId AND c.fecha = @fecha',
         parameters: [
           { name: '@doctorId', value: doctorId },
           { name: '@fecha', value: fecha }
         ]
       };
       
-      const { resources: citas } = await citasContainer.items
+      const { resources: citas } = await container.items
         .query(citasQuery)
         .fetchAll();
       

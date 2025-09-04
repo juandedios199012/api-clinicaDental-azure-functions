@@ -18,7 +18,7 @@ export async function appointmentsHandler(request, context) {
       let querySpec;
       if (fecha && doctorId) {
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.fecha = @fecha AND c.doctorId = @doctorId ORDER BY c.hora',
+          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha AND c.doctorId = @doctorId ORDER BY c.hora',
           parameters: [
             { name: '@fecha', value: fecha },
             { name: '@doctorId', value: doctorId }
@@ -26,14 +26,14 @@ export async function appointmentsHandler(request, context) {
         };
       } else if (fecha) {
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.fecha = @fecha ORDER BY c.hora',
+          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha ORDER BY c.hora',
           parameters: [
             { name: '@fecha', value: fecha }
           ]
         };
       } else {
         querySpec = {
-          query: 'SELECT * FROM c ORDER BY c.fecha DESC, c.hora'
+          query: 'SELECT * FROM c WHERE c.type = "appointment" ORDER BY c.fecha DESC, c.hora'
         };
       }
       
@@ -60,7 +60,7 @@ export async function appointmentsHandler(request, context) {
 
       // Verificar si la cita ya existe
       const existingQuery = {
-        query: 'SELECT * FROM c WHERE c.doctorId = @doctorId AND c.fecha = @fecha AND c.hora = @hora',
+        query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.doctorId = @doctorId AND c.fecha = @fecha AND c.hora = @hora',
         parameters: [
           { name: '@doctorId', value: doctorId },
           { name: '@fecha', value: fecha },
@@ -81,6 +81,7 @@ export async function appointmentsHandler(request, context) {
 
       const cita = {
         id: crypto.randomUUID(),
+        type: 'appointment',
         pacienteNombre,
         doctorId,
         servicioId,

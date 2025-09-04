@@ -8,12 +8,12 @@ export async function servicesHandler(request, context) {
   try {
     const cosmosClient = new CosmosClient(process.env.CosmosDBConnection);
     const database = cosmosClient.database(process.env.COSMOS_DATABASE);
-    const container = database.container(process.env.COSMOS_CONTAINER_SERVICES);
+    const container = database.container(process.env.COSMOS_CONTAINER);
     
     if (request.method === 'GET') {
       // Obtener todos los servicios activos
       const querySpec = {
-        query: 'SELECT * FROM c WHERE c.activo = true ORDER BY c.nombre'
+        query: 'SELECT * FROM c WHERE c.type = "service" AND c.activo = true ORDER BY c.nombre'
       };
       
       const { resources: services } = await container.items
@@ -39,6 +39,7 @@ export async function servicesHandler(request, context) {
 
       const servicio = {
         id: crypto.randomUUID(),
+        type: 'service',
         nombre,
         duracion: parseInt(duracion),
         precio: parseFloat(precio),

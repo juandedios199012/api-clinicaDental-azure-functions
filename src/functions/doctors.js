@@ -8,12 +8,12 @@ export async function doctorsHandler(request, context) {
   try {
     const cosmosClient = new CosmosClient(process.env.CosmosDBConnection);
     const database = cosmosClient.database(process.env.COSMOS_DATABASE);
-    const container = database.container(process.env.COSMOS_CONTAINER_DOCTORS);
+    const container = database.container(process.env.COSMOS_CONTAINER);
     
     if (request.method === 'GET') {
       // Obtener todos los doctores activos
       const querySpec = {
-        query: 'SELECT * FROM c WHERE c.activo = true ORDER BY c.nombre'
+        query: 'SELECT * FROM c WHERE c.type = "doctor" AND c.activo = true ORDER BY c.nombre'
       };
       
       const { resources: doctors } = await container.items
@@ -39,6 +39,7 @@ export async function doctorsHandler(request, context) {
 
       const doctor = {
         id: crypto.randomUUID(),
+        type: 'doctor',
         nombre,
         especialidad,
         horario,

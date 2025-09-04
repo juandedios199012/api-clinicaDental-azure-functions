@@ -7,9 +7,9 @@ on:
     branches: [ main ]
 
 env:
-  AZURE_FUNCTIONAPP_NAME: 'api-clinica-dental'
+  AZURE_FUNCTIONAPP_NAME: 'clinicaDentalfunctions'
   AZURE_FUNCTIONAPP_PACKAGE_PATH: '.'
-  NODE_VERSION: '18.x'
+  NODE_VERSION: '22.x'
 
 jobs:
   build-and-deploy:

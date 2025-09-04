@@ -1,0 +1,29 @@
+{
+  "name": "api-clinica-dental-azure-functions",
+  "version": "1.0.0",
+  "description": "Azure Functions API for dental clinic management with appointment booking, doctors, services, and availability",
+  "main": "src/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.0",
+    "@azure/cosmos": "^4.0.0"
+  },
+  "devDependencies": {
+    "azure-functions-core-tools": "^4.0.0"
+  },
+  "keywords": [
+    "azure-functions",
+    "dental-clinic",
+    "appointments",
+    "cosmosdb",
+    "performance-testing"
+  ],
+  "license": "MIT"
+}

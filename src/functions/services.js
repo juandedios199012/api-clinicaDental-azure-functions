@@ -28,7 +28,7 @@ export async function servicesHandler(request, context) {
 
     if (request.method === 'POST') {
       const body = await request.json();
-      const { nombre, duracion, precio } = body;
+      const { nombre, duracion, precio, descripcion } = body;
       
       if (!nombre || !duracion || !precio) {
         return { 
@@ -43,6 +43,7 @@ export async function servicesHandler(request, context) {
         nombre,
         duracion: parseInt(duracion),
         precio: parseFloat(precio),
+        descripcion: descripcion || '',
         activo: true,
         createdAt: new Date().toISOString()
       };

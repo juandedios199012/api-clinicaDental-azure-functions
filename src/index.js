@@ -6,3 +6,4 @@ import './functions/appointments.js';
 import './functions/availability.js';
 import './functions/patients.js';
 import './functions/config.js';
+import './functions/setup.js';

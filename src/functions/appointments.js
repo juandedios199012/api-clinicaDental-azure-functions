@@ -14,28 +14,32 @@ export async function appointmentsHandler(request, context) {
       const url = new URL(request.url);
       const fecha = url.searchParams.get('fecha');
       const doctorId = url.searchParams.get('doctorId');
+      const sucursalId = url.searchParams.get('sucursalId'); // Nuevo filtro por sucursal
       
       let querySpec;
-      if (fecha && doctorId) {
-        querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha AND c.doctorId = @doctorId',
-          parameters: [
-            { name: '@fecha', value: fecha },
-            { name: '@doctorId', value: doctorId }
-          ]
-        };
-      } else if (fecha) {
-        querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha',
-          parameters: [
-            { name: '@fecha', value: fecha }
-          ]
-        };
-      } else {
-        querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "appointment"'
-        };
+      let parameters = [];
+      let whereConditions = ['c.type = "appointment"'];
+      
+      // Construir condiciones dinámicamente
+      if (fecha) {
+        whereConditions.push('c.fecha = @fecha');
+        parameters.push({ name: '@fecha', value: fecha });
       }
+      
+      if (doctorId) {
+        whereConditions.push('c.doctorId = @doctorId');
+        parameters.push({ name: '@doctorId', value: doctorId });
+      }
+      
+      if (sucursalId) {
+        whereConditions.push('c.sucursalId = @sucursalId');
+        parameters.push({ name: '@sucursalId', value: sucursalId });
+      }
+      
+      querySpec = {
+        query: `SELECT * FROM c WHERE ${whereConditions.join(' AND ')}`,
+        parameters: parameters
+      };
       
       const { resources: appointments } = await container.items
         .query(querySpec)
@@ -58,10 +62,24 @@ export async function appointmentsHandler(request, context) {
           };
           const { resources: services } = await container.items.query(serviceQuery).fetchAll();
           
+          // Obtener nombre de la sucursal (desde los datos estáticos)
+          const sucursales = [
+            { id: 'barranquilla', nombre: 'Sede Barranquilla' },
+            { id: 'bucaramanga', nombre: 'Sede Bucaramanga' },
+            { id: 'cali', nombre: 'Sede Cali' },
+            { id: 'cartagena', nombre: 'Sede Cartagena' },
+            { id: 'centro', nombre: 'Sede Centro' },
+            { id: 'medellin', nombre: 'Sede Medellín' },
+            { id: 'norte', nombre: 'Sede Norte' },
+            { id: 'sur', nombre: 'Sede Sur' }
+          ];
+          const sucursal = sucursales.find(s => s.id === appointment.sucursalId);
+          
           return {
             ...appointment,
             doctorNombre: doctors.length > 0 ? doctors[0].nombre : 'Doctor no encontrado',
-            servicioNombre: services.length > 0 ? services[0].nombre : 'Servicio no encontrado'
+            servicioNombre: services.length > 0 ? services[0].nombre : 'Servicio no encontrado',
+            sucursalNombre: sucursal ? sucursal.nombre : 'Sucursal no encontrada'
           };
         })
       );
@@ -84,12 +102,12 @@ export async function appointmentsHandler(request, context) {
 
     if (request.method === 'POST') {
       const body = await request.json();
-      const { pacienteNombre, doctorId, servicioId, fecha, hora } = body;
+      const { pacienteNombre, doctorId, servicioId, fecha, hora, sucursalId } = body;
       
-      if (!pacienteNombre || !doctorId || !servicioId || !fecha || !hora) {
+      if (!pacienteNombre || !doctorId || !servicioId || !fecha || !hora || !sucursalId) {
         return { 
           status: 400, 
-          jsonBody: { error: 'Se requieren los campos: pacienteNombre, doctorId, servicioId, fecha, hora' }
+          jsonBody: { error: 'Se requieren los campos: pacienteNombre, doctorId, servicioId, fecha, hora, sucursalId' }
         };
       }
 
@@ -120,6 +138,7 @@ export async function appointmentsHandler(request, context) {
         pacienteNombre,
         doctorId,
         servicioId,
+        sucursalId, // Nuevo campo para la sucursal
         fecha,
         hora,
         estado: 'confirmada',

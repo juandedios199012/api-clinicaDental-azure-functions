@@ -14,7 +14,8 @@ export async function appointmentsHandler(request, context) {
       const url = new URL(request.url);
       const fecha = url.searchParams.get('fecha');
       const doctorId = url.searchParams.get('doctorId');
-      const sucursalId = url.searchParams.get('sucursalId'); // Nuevo filtro por sucursal
+      const sucursalId = url.searchParams.get('sucursalId');
+      const estado = url.searchParams.get('estado'); // Nuevo filtro por estado
       
       let querySpec;
       let parameters = [];
@@ -34,6 +35,11 @@ export async function appointmentsHandler(request, context) {
       if (sucursalId) {
         whereConditions.push('c.sucursalId = @sucursalId');
         parameters.push({ name: '@sucursalId', value: sucursalId });
+      }
+      
+      if (estado) {
+        whereConditions.push('c.estado = @estado');
+        parameters.push({ name: '@estado', value: estado });
       }
       
       querySpec = {
@@ -153,6 +159,72 @@ export async function appointmentsHandler(request, context) {
       };
     }
 
+    if (request.method === 'PATCH') {
+      const url = new URL(request.url);
+      const pathSegments = url.pathname.split('/');
+      const appointmentId = pathSegments[pathSegments.length - 1]; // ID de la cita
+      
+      if (!appointmentId || appointmentId === 'appointments') {
+        return {
+          status: 400,
+          jsonBody: { error: 'Se requiere el ID de la cita en la URL. Ejemplo: PATCH /api/appointments/{id}' }
+        };
+      }
+
+      const body = await request.json();
+      const { estado, motivoCancelacion } = body;
+      
+      // Validar estado
+      const estadosValidos = ['confirmada', 'atendida', 'cancelada', 'no_asistio'];
+      if (!estado || !estadosValidos.includes(estado)) {
+        return {
+          status: 400,
+          jsonBody: { 
+            error: 'Estado inválido. Estados válidos: confirmada, atendida, cancelada, no_asistio' 
+          }
+        };
+      }
+
+      // Verificar si la cita existe
+      const existingQuery = {
+        query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.id = @appointmentId',
+        parameters: [{ name: '@appointmentId', value: appointmentId }]
+      };
+      
+      const { resources: existingAppointments } = await container.items
+        .query(existingQuery)
+        .fetchAll();
+      
+      if (existingAppointments.length === 0) {
+        return {
+          status: 404,
+          jsonBody: { error: 'Cita no encontrada' }
+        };
+      }
+
+      // Actualizar estado de la cita
+      const existingAppointment = existingAppointments[0];
+      const updatedAppointment = {
+        ...existingAppointment,
+        estado: estado,
+        fechaCambioEstado: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Agregar motivo de cancelación si el estado es 'cancelada'
+      if (estado === 'cancelada' && motivoCancelacion) {
+        updatedAppointment.motivoCancelacion = motivoCancelacion;
+      }
+
+      const { resource: updatedResource } = await container.items
+        .upsert(updatedAppointment);
+      
+      return { 
+        status: 200, 
+        jsonBody: updatedResource 
+      };
+    }
+
     return { 
       status: 405, 
       jsonBody: { error: 'Método no permitido' } 
@@ -172,7 +244,7 @@ export async function appointmentsHandler(request, context) {
 
 app.http('appointments', {
   route: 'appointments',
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PATCH'], // Agregamos PATCH para cambiar estado
   authLevel: 'anonymous',
   handler: appointmentsHandler
 });

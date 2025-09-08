@@ -31,7 +31,15 @@ export async function setupHandler(request, context) {
         { nombre: 'Dra. Maria Lopez', especialidad: 'Odontología General', telefono: '3009876543', email: 'maria@clinica.com' }
       ];
 
-      const results = { servicios: [], doctores: [] };
+      // Pacientes de ejemplo
+      const pacientesEjemplo = [
+        { nombre: 'Juan', apellido: 'Pérez', correoElectronico: 'juan.perez@email.com', numeroTelefono: '3001234567', fechaNacimiento: '1985-03-15', pais: 'Colombia', ciudad: 'Bogotá', direccion: 'Calle 123 #45-67' },
+        { nombre: 'María', apellido: 'García', correoElectronico: 'maria.garcia@email.com', numeroTelefono: '3007654321', fechaNacimiento: '1990-07-22', pais: 'Colombia', ciudad: 'Medellín', direccion: 'Carrera 45 #67-89' },
+        { nombre: 'Carlos', apellido: 'López', correoElectronico: 'carlos.lopez@email.com', numeroTelefono: '3009876543', fechaNacimiento: '1978-11-08', pais: 'Colombia', ciudad: 'Cali', direccion: 'Avenida 6 #28-45' },
+        { nombre: 'Ana', apellido: 'Rodríguez', correoElectronico: 'ana.rodriguez@email.com', numeroTelefono: '3005432109', fechaNacimiento: '1995-01-30', pais: 'Colombia', ciudad: 'Barranquilla', direccion: 'Calle 84 #30-15' }
+      ];
+
+      const results = { servicios: [], doctores: [], pacientes: [] };
 
       // Insertar servicios
       for (const servicio of serviciosEjemplo) {
@@ -61,12 +69,29 @@ export async function setupHandler(request, context) {
         results.doctores.push(resource);
       }
 
+      // Insertar pacientes
+      for (const paciente of pacientesEjemplo) {
+        const nuevoPaciente = {
+          id: crypto.randomUUID(),
+          type: 'patient',
+          ...paciente,
+          aceptaPoliticas: true,
+          fechaRegistro: new Date().toISOString(),
+          activo: true,
+          createdAt: new Date().toISOString()
+        };
+        
+        const { resource } = await container.items.create(nuevoPaciente);
+        results.pacientes.push(resource);
+      }
+
       return {
         status: 200,
         jsonBody: {
           message: 'Datos de ejemplo creados exitosamente',
           serviciosCreados: results.servicios.length,
           doctoresCreados: results.doctores.length,
+          pacientesCreados: results.pacientes.length,
           data: results
         }
       };

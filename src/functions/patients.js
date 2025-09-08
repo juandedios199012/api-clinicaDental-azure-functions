@@ -67,6 +67,7 @@ export async function patientsHandler(request, context) {
         apellido, 
         correoElectronico, 
         numeroTelefono, 
+        fechaNacimiento,
         pais, 
         ciudad, 
         direccion, 
@@ -74,11 +75,11 @@ export async function patientsHandler(request, context) {
       } = body;
       
       // Validaciones requeridas
-      if (!nombre || !apellido || !correoElectronico || !numeroTelefono || !pais || !ciudad || !direccion) {
+      if (!nombre || !apellido || !correoElectronico || !numeroTelefono || !fechaNacimiento || !pais || !ciudad || !direccion) {
         return { 
           status: 400, 
           jsonBody: { 
-            error: 'Se requieren todos los campos: nombre, apellido, correoElectronico, numeroTelefono, pais, ciudad, direccion' 
+            error: 'Se requieren todos los campos: nombre, apellido, correoElectronico, numeroTelefono, fechaNacimiento, pais, ciudad, direccion' 
           }
         };
       }
@@ -97,6 +98,33 @@ export async function patientsHandler(request, context) {
         return {
           status: 400,
           jsonBody: { error: 'El formato del correo electrónico no es válido' }
+        };
+      }
+
+      // Validar fecha de nacimiento
+      const birthDate = new Date(fechaNacimiento);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (isNaN(birthDate.getTime())) {
+        return {
+          status: 400,
+          jsonBody: { error: 'Formato de fecha de nacimiento inválido. Use YYYY-MM-DD' }
+        };
+      }
+      
+      if (birthDate > today) {
+        return {
+          status: 400,
+          jsonBody: { error: 'La fecha de nacimiento no puede ser futura' }
+        };
+      }
+      
+      if (age > 120 || (age === 120 && monthDiff > 0)) {
+        return {
+          status: 400,
+          jsonBody: { error: 'La fecha de nacimiento no es realista' }
         };
       }
 
@@ -126,6 +154,7 @@ export async function patientsHandler(request, context) {
         apellido: apellido.trim(),
         correoElectronico: correoElectronico.toLowerCase().trim(),
         numeroTelefono: numeroTelefono.trim(),
+        fechaNacimiento: fechaNacimiento, // Nueva fecha de nacimiento
         pais: pais.trim(),
         ciudad: ciudad.trim(),
         direccion: direccion.trim(),
@@ -161,17 +190,18 @@ export async function patientsHandler(request, context) {
         apellido, 
         correoElectronico, 
         numeroTelefono, 
+        fechaNacimiento,
         pais, 
         ciudad, 
         direccion 
       } = body;
       
       // Validaciones requeridas
-      if (!nombre || !apellido || !correoElectronico || !numeroTelefono || !pais || !ciudad || !direccion) {
+      if (!nombre || !apellido || !correoElectronico || !numeroTelefono || !fechaNacimiento || !pais || !ciudad || !direccion) {
         return { 
           status: 400, 
           jsonBody: { 
-            error: 'Se requieren todos los campos: nombre, apellido, correoElectronico, numeroTelefono, pais, ciudad, direccion' 
+            error: 'Se requieren todos los campos: nombre, apellido, correoElectronico, numeroTelefono, fechaNacimiento, pais, ciudad, direccion' 
           }
         };
       }
@@ -222,6 +252,33 @@ export async function patientsHandler(request, context) {
         };
       }
 
+      // Validar fecha de nacimiento
+      const birthDate = new Date(fechaNacimiento);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (isNaN(birthDate.getTime())) {
+        return {
+          status: 400,
+          jsonBody: { error: 'Formato de fecha de nacimiento inválido. Use YYYY-MM-DD' }
+        };
+      }
+      
+      if (birthDate > today) {
+        return {
+          status: 400,
+          jsonBody: { error: 'La fecha de nacimiento no puede ser futura' }
+        };
+      }
+      
+      if (age > 120 || (age === 120 && monthDiff > 0)) {
+        return {
+          status: 400,
+          jsonBody: { error: 'La fecha de nacimiento no es realista' }
+        };
+      }
+
       // Actualizar paciente
       const existingPatient = existingPatients[0];
       const updatedPatient = {
@@ -230,6 +287,7 @@ export async function patientsHandler(request, context) {
         apellido: apellido.trim(),
         correoElectronico: correoElectronico.toLowerCase().trim(),
         numeroTelefono: numeroTelefono.trim(),
+        fechaNacimiento: fechaNacimiento, // Incluir fecha de nacimiento en actualización
         pais: pais.trim(),
         ciudad: ciudad.trim(),
         direccion: direccion.trim(),

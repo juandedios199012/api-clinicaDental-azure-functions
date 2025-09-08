@@ -13,16 +13,19 @@ export async function servicesHandler(request, context) {
     if (request.method === 'GET') {
       // Obtener todos los servicios activos
       const querySpec = {
-        query: 'SELECT * FROM c WHERE c.type = "service" AND c.activo = true ORDER BY c.nombre'
+        query: 'SELECT * FROM c WHERE c.type = "service" AND c.activo = true'
       };
       
       const { resources: services } = await container.items
         .query(querySpec)
         .fetchAll();
       
+      // Ordenar por nombre en JavaScript
+      const sortedServices = services.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+      
       return { 
         status: 200,
-        jsonBody: services
+        jsonBody: sortedServices
       };
     }
 

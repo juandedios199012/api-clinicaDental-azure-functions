@@ -18,7 +18,7 @@ export async function appointmentsHandler(request, context) {
       let querySpec;
       if (fecha && doctorId) {
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha AND c.doctorId = @doctorId ORDER BY c.hora',
+          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha AND c.doctorId = @doctorId',
           parameters: [
             { name: '@fecha', value: fecha },
             { name: '@doctorId', value: doctorId }
@@ -26,14 +26,14 @@ export async function appointmentsHandler(request, context) {
         };
       } else if (fecha) {
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha ORDER BY c.hora',
+          query: 'SELECT * FROM c WHERE c.type = "appointment" AND c.fecha = @fecha',
           parameters: [
             { name: '@fecha', value: fecha }
           ]
         };
       } else {
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "appointment" ORDER BY c.fecha DESC, c.hora'
+          query: 'SELECT * FROM c WHERE c.type = "appointment"'
         };
       }
       
@@ -66,9 +66,19 @@ export async function appointmentsHandler(request, context) {
         })
       );
       
+      // Ordenar las citas por fecha (más reciente primero) y luego por hora
+      const sortedAppointments = enrichedAppointments.sort((a, b) => {
+        // Primero por fecha (descendente - más reciente primero)
+        const dateCompare = new Date(b.fecha || '1900-01-01').getTime() - new Date(a.fecha || '1900-01-01').getTime();
+        if (dateCompare !== 0) return dateCompare;
+        
+        // Luego por hora (ascendente)
+        return (a.hora || '00:00').localeCompare(b.hora || '00:00');
+      });
+      
       return { 
         status: 200,
-        jsonBody: enrichedAppointments
+        jsonBody: sortedAppointments
       };
     }
 

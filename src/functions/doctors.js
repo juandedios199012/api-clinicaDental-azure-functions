@@ -13,16 +13,19 @@ export async function doctorsHandler(request, context) {
     if (request.method === 'GET') {
       // Obtener todos los doctores activos
       const querySpec = {
-        query: 'SELECT * FROM c WHERE c.type = "doctor" AND c.activo = true ORDER BY c.nombre'
+        query: 'SELECT * FROM c WHERE c.type = "doctor" AND c.activo = true'
       };
       
       const { resources: doctors } = await container.items
         .query(querySpec)
         .fetchAll();
       
+      // Ordenar por nombre en JavaScript
+      const sortedDoctors = doctors.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+      
       return { 
         status: 200,
-        jsonBody: doctors
+        jsonBody: sortedDoctors
       };
     }
 

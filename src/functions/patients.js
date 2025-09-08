@@ -6,35 +6,57 @@ export async function patientsHandler(request, context) {
   context.log('Patients function executed');
   
   try {
+    // Log para verificar variables de entorno
+    context.log('Environment check:', {
+      hasCosmosConnection: !!process.env.CosmosDBConnection,
+      hasDatabase: !!process.env.COSMOS_DATABASE,
+      hasContainer: !!process.env.COSMOS_CONTAINER
+    });
+
     const cosmosClient = new CosmosClient(process.env.CosmosDBConnection);
     const database = cosmosClient.database(process.env.COSMOS_DATABASE);
     const container = database.container(process.env.COSMOS_CONTAINER);
     
     if (request.method === 'GET') {
+      context.log('Processing GET request for patients');
+      
       const url = new URL(request.url);
       const searchTerm = url.searchParams.get('search');
       
       let querySpec;
       if (searchTerm) {
+        context.log('Search term provided:', searchTerm);
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "patient" AND (CONTAINS(LOWER(c.nombre), LOWER(@search)) OR CONTAINS(LOWER(c.apellido), LOWER(@search)) OR CONTAINS(LOWER(c.correoElectronico), LOWER(@search))) ORDER BY c.apellido, c.nombre',
+          query: 'SELECT * FROM c WHERE c.type = "patient" AND (CONTAINS(LOWER(c.nombre), LOWER(@search)) OR CONTAINS(LOWER(c.apellido), LOWER(@search)) OR CONTAINS(LOWER(c.correoElectronico), LOWER(@search)))',
           parameters: [
             { name: '@search', value: searchTerm }
           ]
         };
       } else {
+        context.log('No search term, getting all patients');
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "patient" ORDER BY c.apellido, c.nombre'
+          query: 'SELECT * FROM c WHERE c.type = "patient"'
         };
       }
+      
+      context.log('Executing query:', querySpec.query);
       
       const { resources: patients } = await container.items
         .query(querySpec)
         .fetchAll();
       
+      context.log('Found patients:', patients.length);
+      
+      // Ordenar en JavaScript para evitar problemas de índice en Cosmos DB
+      const sortedPatients = patients.sort((a, b) => {
+        const lastNameCompare = (a.apellido || '').localeCompare(b.apellido || '');
+        if (lastNameCompare !== 0) return lastNameCompare;
+        return (a.nombre || '').localeCompare(b.nombre || '');
+      });
+      
       return { 
         status: 200,
-        jsonBody: patients
+        jsonBody: sortedPatients
       };
     }
 
@@ -127,12 +149,40 @@ export async function patientsHandler(request, context) {
     };
     
   } catch (error) {
-    context.log('Error:', error);
+    context.log('Error in patients handler:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      statusCode: error.statusCode
+    });
+    
+    // Errores específicos de Cosmos DB
+    if (error.code === 'Unauthorized' || error.statusCode === 401) {
+      return {
+        status: 500,
+        jsonBody: { 
+          error: 'Error de autenticación con la base de datos',
+          details: 'Verifique la configuración de Cosmos DB'
+        }
+      };
+    }
+    
+    if (error.code === 'NotFound' || error.statusCode === 404) {
+      return {
+        status: 500,
+        jsonBody: { 
+          error: 'Base de datos o contenedor no encontrado',
+          details: 'Verifique la configuración de Cosmos DB'
+        }
+      };
+    }
+    
     return {
       status: 500,
       jsonBody: { 
         error: 'Error interno del servidor',
-        details: error.message 
+        details: error.message,
+        code: error.code || 'UNKNOWN'
       }
     };
   }

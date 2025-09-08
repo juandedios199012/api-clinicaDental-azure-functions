@@ -27,15 +27,15 @@ export async function patientsHandler(request, context) {
       if (searchTerm) {
         context.log('Search term provided:', searchTerm);
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "patient" AND (CONTAINS(LOWER(c.nombre), LOWER(@search)) OR CONTAINS(LOWER(c.apellido), LOWER(@search)) OR CONTAINS(LOWER(c.correoElectronico), LOWER(@search)))',
+          query: 'SELECT * FROM c WHERE c.type = "patient" AND c.activo = true AND (CONTAINS(LOWER(c.nombre), LOWER(@search)) OR CONTAINS(LOWER(c.apellido), LOWER(@search)) OR CONTAINS(LOWER(c.correoElectronico), LOWER(@search)))',
           parameters: [
             { name: '@search', value: searchTerm }
           ]
         };
       } else {
-        context.log('No search term, getting all patients');
+        context.log('No search term, getting all active patients');
         querySpec = {
-          query: 'SELECT * FROM c WHERE c.type = "patient"'
+          query: 'SELECT * FROM c WHERE c.type = "patient" AND c.activo = true'
         };
       }
       
@@ -143,6 +143,158 @@ export async function patientsHandler(request, context) {
       };
     }
 
+    if (request.method === 'PUT') {
+      const url = new URL(request.url);
+      const pathSegments = url.pathname.split('/');
+      const patientId = pathSegments[pathSegments.length - 1]; // ID del paciente
+      
+      if (!patientId || patientId === 'patients') {
+        return {
+          status: 400,
+          jsonBody: { error: 'Se requiere el ID del paciente en la URL. Ejemplo: PUT /api/patients/{id}' }
+        };
+      }
+
+      const body = await request.json();
+      const { 
+        nombre, 
+        apellido, 
+        correoElectronico, 
+        numeroTelefono, 
+        pais, 
+        ciudad, 
+        direccion 
+      } = body;
+      
+      // Validaciones requeridas
+      if (!nombre || !apellido || !correoElectronico || !numeroTelefono || !pais || !ciudad || !direccion) {
+        return { 
+          status: 400, 
+          jsonBody: { 
+            error: 'Se requieren todos los campos: nombre, apellido, correoElectronico, numeroTelefono, pais, ciudad, direccion' 
+          }
+        };
+      }
+
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(correoElectronico)) {
+        return {
+          status: 400,
+          jsonBody: { error: 'El formato del correo electrónico no es válido' }
+        };
+      }
+
+      // Verificar si el paciente existe
+      const existingPatientQuery = {
+        query: 'SELECT * FROM c WHERE c.type = "patient" AND c.id = @patientId',
+        parameters: [{ name: '@patientId', value: patientId }]
+      };
+      
+      const { resources: existingPatients } = await container.items
+        .query(existingPatientQuery)
+        .fetchAll();
+      
+      if (existingPatients.length === 0) {
+        return {
+          status: 404,
+          jsonBody: { error: 'Paciente no encontrado' }
+        };
+      }
+
+      // Verificar si el email ya existe en otro paciente
+      const emailCheckQuery = {
+        query: 'SELECT * FROM c WHERE c.type = "patient" AND c.correoElectronico = @email AND c.id != @patientId',
+        parameters: [
+          { name: '@email', value: correoElectronico },
+          { name: '@patientId', value: patientId }
+        ]
+      };
+      
+      const { resources: emailConflicts } = await container.items
+        .query(emailCheckQuery)
+        .fetchAll();
+      
+      if (emailConflicts.length > 0) {
+        return {
+          status: 409,
+          jsonBody: { error: 'Ya existe otro paciente registrado con este correo electrónico' }
+        };
+      }
+
+      // Actualizar paciente
+      const existingPatient = existingPatients[0];
+      const updatedPatient = {
+        ...existingPatient,
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        correoElectronico: correoElectronico.toLowerCase().trim(),
+        numeroTelefono: numeroTelefono.trim(),
+        pais: pais.trim(),
+        ciudad: ciudad.trim(),
+        direccion: direccion.trim(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const { resource: updatedResource } = await container.items
+        .upsert(updatedPatient);
+      
+      return { 
+        status: 200, 
+        jsonBody: updatedResource 
+      };
+    }
+
+    if (request.method === 'DELETE') {
+      const url = new URL(request.url);
+      const pathSegments = url.pathname.split('/');
+      const patientId = pathSegments[pathSegments.length - 1]; // ID del paciente
+      
+      if (!patientId || patientId === 'patients') {
+        return {
+          status: 400,
+          jsonBody: { error: 'Se requiere el ID del paciente en la URL. Ejemplo: DELETE /api/patients/{id}' }
+        };
+      }
+
+      // Verificar si el paciente existe
+      const existingPatientQuery = {
+        query: 'SELECT * FROM c WHERE c.type = "patient" AND c.id = @patientId',
+        parameters: [{ name: '@patientId', value: patientId }]
+      };
+      
+      const { resources: existingPatients } = await container.items
+        .query(existingPatientQuery)
+        .fetchAll();
+      
+      if (existingPatients.length === 0) {
+        return {
+          status: 404,
+          jsonBody: { error: 'Paciente no encontrado' }
+        };
+      }
+
+      // Soft delete: marcar como inactivo en lugar de eliminar físicamente
+      const existingPatient = existingPatients[0];
+      const deletedPatient = {
+        ...existingPatient,
+        activo: false,
+        fechaEliminacion: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const { resource: deletedResource } = await container.items
+        .upsert(deletedPatient);
+      
+      return { 
+        status: 200, 
+        jsonBody: { 
+          message: 'Paciente eliminado exitosamente',
+          paciente: deletedResource
+        }
+      };
+    }
+
     return { 
       status: 405, 
       jsonBody: { error: 'Método no permitido' } 
@@ -190,7 +342,7 @@ export async function patientsHandler(request, context) {
 
 app.http('patients', {
   route: 'patients',
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Agregamos PUT y DELETE
   authLevel: 'anonymous',
   handler: patientsHandler
 });

@@ -4,6 +4,7 @@ import './functions/doctors.js';
 import './functions/services.js';
 import './functions/appointments.js';
 import './functions/appointmentStatus.js';
+import './functions/cancelationReasons.js';
 import './functions/availability.js';
 import './functions/patients.js';
 import './functions/config.js';

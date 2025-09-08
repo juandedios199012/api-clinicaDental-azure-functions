@@ -9,6 +9,31 @@ export async function appointmentStatusHandler(request, context) {
     const database = cosmosClient.database(process.env.COSMOS_DATABASE);
     const container = database.container(process.env.COSMOS_CONTAINER);
     
+    if (request.method === 'GET') {
+      // Endpoint para obtener los motivos de cancelación válidos
+      const motivosCancelacionValidos = [
+        'Emergencia médica',
+        'Problemas familiares', 
+        'Conflicto de horarios',
+        'Problemas económicos',
+        'Reprogramación solicitada',
+        'No se siente bien',
+        'Problemas de transporte',
+        'Cita duplicada',
+        'Cambio de doctor solicitado',
+        'Otro motivo',
+        'Sin motivo especificado'
+      ];
+
+      return {
+        status: 200,
+        jsonBody: {
+          motivosCancelacion: motivosCancelacionValidos,
+          message: 'Lista de motivos válidos para cancelación de citas'
+        }
+      };
+    }
+    
     if (request.method === 'PUT') {
       // Obtener el ID de la cita desde la URL
       const appointmentId = request.params.id;
@@ -24,6 +49,21 @@ export async function appointmentStatusHandler(request, context) {
       const requestBody = await request.json();
       const { estado, motivoCancelacion } = requestBody;
 
+      // Lista de motivos predefinidos para cancelación
+      const motivosCancelacionValidos = [
+        'Emergencia médica',
+        'Problemas familiares', 
+        'Conflicto de horarios',
+        'Problemas económicos',
+        'Reprogramación solicitada',
+        'No se siente bien',
+        'Problemas de transporte',
+        'Cita duplicada',
+        'Cambio de doctor solicitado',
+        'Otro motivo',
+        'Sin motivo especificado'
+      ];
+
       // Validar estado
       const estadosValidos = ['confirmada', 'atendida', 'cancelada', 'no_asistio'];
       if (!estado || !estadosValidos.includes(estado)) {
@@ -35,14 +75,25 @@ export async function appointmentStatusHandler(request, context) {
         };
       }
 
-      // Si el estado es cancelada, validar que se proporcione motivo
-      if (estado === 'cancelada' && !motivoCancelacion) {
-        return {
-          status: 400,
-          jsonBody: { 
-            error: 'Motivo de cancelación requerido cuando el estado es "cancelada"' 
+      // Si el estado es cancelada, validar motivo (opcional, usar por defecto si no se proporciona)
+      let motivoFinal = null;
+      if (estado === 'cancelada') {
+        if (motivoCancelacion) {
+          // Validar que el motivo esté en la lista de motivos válidos
+          if (!motivosCancelacionValidos.includes(motivoCancelacion)) {
+            return {
+              status: 400,
+              jsonBody: { 
+                error: 'Motivo de cancelación inválido',
+                motivosValidos: motivosCancelacionValidos
+              }
+            };
           }
-        };
+          motivoFinal = motivoCancelacion;
+        } else {
+          // Usar motivo por defecto si no se proporciona
+          motivoFinal = 'Sin motivo especificado';
+        }
       }
 
       // Buscar la cita existente
@@ -73,8 +124,8 @@ export async function appointmentStatusHandler(request, context) {
       };
 
       // Agregar motivo de cancelación si aplica
-      if (estado === 'cancelada' && motivoCancelacion) {
-        updatedAppointment.motivoCancelacion = motivoCancelacion;
+      if (estado === 'cancelada' && motivoFinal) {
+        updatedAppointment.motivoCancelacion = motivoFinal;
       }
 
       // Si la cita se marca como atendida, registrar fecha de atención
@@ -136,7 +187,7 @@ export async function appointmentStatusHandler(request, context) {
 
     return { 
       status: 405, 
-      jsonBody: { error: 'Método no permitido. Use PUT para actualizar el estado de una cita.' } 
+      jsonBody: { error: 'Método no permitido. Use GET para obtener motivos válidos o PUT para actualizar el estado de una cita.' } 
     };
     
   } catch (error) {
@@ -154,7 +205,7 @@ export async function appointmentStatusHandler(request, context) {
 // Endpoint específico para cambiar estado de citas
 app.http('appointmentStatus', {
   route: 'appointments/{id}/estado',
-  methods: ['PUT'],
+  methods: ['GET', 'PUT'],
   authLevel: 'anonymous',
   handler: appointmentStatusHandler
 });
